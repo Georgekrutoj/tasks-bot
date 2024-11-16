@@ -5,7 +5,9 @@ from aiogram import Dispatcher
 from aiogram import types
 from aiogram import F
 from aiogram.enums import ParseMode
+
 from aiogram.filters.command import Command
+from aiogram.filters.command import CommandStart
 
 from .handlers import register
 
@@ -23,9 +25,9 @@ async def setup_bot() -> None:
     await bot.set_my_commands(BOT_COMMANDS_FOR_MENU)
 
 
-@dispatcher.message(Command("start"))
+@dispatcher.message(CommandStart())
 async def start_command(message: types.Message) -> None:
-    await message.answer(f"Доброго времени суток, {message.from_user.first_name}!")
+    await message.answer(f"Здравствуйте, {message.from_user.first_name}!\nЧтобы просмотреть список команд - /help")
 
 
 @dispatcher.message(Command("about"))
@@ -38,13 +40,10 @@ async def help_command(message: types.Message) -> None:
     await message.answer("\n".join(["".join(tpl) for tpl in BOT_COMMANDS]))
 
 
-@dispatcher.message(F.text)
-async def another_command(message: types.Message) -> None:
-    await message.answer("Команда не найдена. Чтобы просмотреть список команд, отправьте /help")
-
-
 async def main() -> None:
     dispatcher.startup.register(setup_bot)
+
+    await bot.delete_webhook(drop_pending_updates=True)
     await dispatcher.start_polling(bot)
 
 

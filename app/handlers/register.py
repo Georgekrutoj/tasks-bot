@@ -22,8 +22,33 @@ async def register_command(message: types.Message) -> None:
         text="Я ученик",
         callback_data="student"
     ))
+    builder.adjust(1)
 
     await message.answer("Вы учитель или ученик?", reply_markup=builder.as_markup())
+
+
+@router.message(Command("deleteuser"))
+async def delete_user(message: types.Message) -> None:
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        types.InlineKeyboardButton(
+            text="Да",
+            callback_data="delete_sure"
+        )
+    )
+    builder.add(
+        types.InlineKeyboardButton(
+            text="Нет",
+            callback_data="delete_not_sure"
+        )
+    )
+    builder.adjust(1)
+
+    await message.answer(
+        text="<b>Вы точно хотите удалить аккаунт?</b>\n",
+        reply_markup=builder.as_markup(),
+        parse_mode=ParseMode.HTML
+    )
 
 
 @router.callback_query(F.data == "teacher")
@@ -32,9 +57,10 @@ async def register_as_teacher(callback: types.CallbackQuery) -> None:
 
     await message.delete()
     await message.answer(
-        text=f"Ваш ID - <code>{message.from_user.id}</code>.\nДайте его ученикам, чтобы они зарегистрировались на Вас.",
+        text=f"Ваш ID - <code>{message.from_user.id}</code>.\nДайте его ученикам, чтобы они зарегистрировались на Вас",
         parse_mode=ParseMode.HTML
     )
+    await callback.answer("Вы успешно зарегистрировались как учитель!")
 
 
 @router.callback_query(F.data == "student")
