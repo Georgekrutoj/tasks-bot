@@ -6,9 +6,13 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 
-from app.states import SaveAnswer
+from app.states import SaveTeacherID
+
+from app.objects import CloseButton
+from app.objects import Level
 
 router = Router()
+close_button = CloseButton()
 
 
 @router.message(Command("register"))
@@ -22,6 +26,7 @@ async def register_command(message: types.Message) -> None:
         text="Я ученик",
         callback_data="student"
     ))
+    builder.add(close_button)
     builder.adjust(1)
 
     await message.answer("Вы учитель или ученик?", reply_markup=builder.as_markup())
@@ -54,11 +59,14 @@ async def delete_user(message: types.Message) -> None:
 @router.callback_query(F.data == "teacher")
 async def register_as_teacher(callback: types.CallbackQuery) -> None:
     message = callback.message
+    builder = InlineKeyboardBuilder()
+    builder.add(close_button)
 
     await message.delete()
     await message.answer(
         text=f"Ваш ID - <code>{message.from_user.id}</code>.\nДайте его ученикам, чтобы они зарегистрировались на Вас",
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
+        reply_markup=builder.as_markup()
     )
     await callback.answer("Вы успешно зарегистрировались как учитель!")
 
@@ -66,15 +74,19 @@ async def register_as_teacher(callback: types.CallbackQuery) -> None:
 @router.callback_query(F.data == "student")
 async def register_as_student(callback: types.CallbackQuery, state: FSMContext) -> None:
     message = callback.message
+    builder = InlineKeyboardBuilder()
+    builder.add(close_button)
 
     await message.delete()
-    await message.answer("Пожалуйста, отправьте ID своего учителя")
-    await state.set_state(SaveAnswer.waiting_for_teacher_id)
+    await message.answer("Пожалуйста, отправьте ID своего учителя", reply_markup=builder.as_markup())
+    await state.set_state(SaveTeacherID.waiting_for_teacher_id)
 
 
-@router.message(SaveAnswer.waiting_for_teacher_id, F.text)
+@router.message(SaveTeacherID.waiting_for_teacher_id, F.text)
 async def get_teacher_id(message: types.Message, state: FSMContext) -> None:
     teacher_id = message.text
+    builder = InlineKeyboardBuilder()
+    builder.add(close_button)
 
     await state.update_data(teacher_id=teacher_id)
     await state.clear()

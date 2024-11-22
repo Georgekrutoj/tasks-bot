@@ -5,6 +5,7 @@ from aiogram import Dispatcher
 from aiogram import types
 from aiogram import F
 from aiogram.enums import ParseMode
+from aiogram.fsm.context import FSMContext
 
 from aiogram.filters.command import Command
 from aiogram.filters.command import CommandStart
@@ -38,6 +39,12 @@ async def about_command(message: types.Message) -> None:
 @dispatcher.message(Command("help"))
 async def help_command(message: types.Message) -> None:
     await message.answer("\n".join(["".join(tpl) for tpl in BOT_COMMANDS]))
+
+
+@dispatcher.callback_query(F.data == "close")
+async def close_command(callback: types.CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await callback.message.answer("Действие отменено")
 
 
 async def main() -> None:

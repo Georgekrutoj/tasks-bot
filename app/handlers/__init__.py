@@ -1,3 +1,4 @@
 """The package with handlers"""
 
-from .register import *
+from . import register
+from . import givetasks
