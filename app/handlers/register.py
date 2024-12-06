@@ -59,14 +59,13 @@ async def delete_user(message: types.Message) -> None:
 @router.callback_query(F.data == "teacher")
 async def register_as_teacher(callback: types.CallbackQuery) -> None:
     message = callback.message
-    builder = InlineKeyboardBuilder()
-    builder.add(close_button)
 
     await message.delete()
     await message.answer(
-        text=f"Ваш ID - <code>{message.from_user.id}</code>.\nДайте его ученикам, чтобы они зарегистрировались на Вас",
-        parse_mode=ParseMode.HTML,
-        reply_markup=builder.as_markup()
+        text=f"Ваш ID - <code>{message.from_user.id}</code> (<i>нажмите, чтобы скопировать</i>).\n"
+             f"Дайте его ученикам, чтобы они зарегистрировались на Вас.\n"
+             f"Захотите удалить аккаунт - /deleteuser",
+        parse_mode=ParseMode.HTML
     )
     await callback.answer("Вы успешно зарегистрировались как учитель!")
 
@@ -85,8 +84,6 @@ async def register_as_student(callback: types.CallbackQuery, state: FSMContext) 
 @router.message(SaveTeacherID.waiting_for_teacher_id, F.text)
 async def get_teacher_id(message: types.Message, state: FSMContext) -> None:
     teacher_id = message.text
-    builder = InlineKeyboardBuilder()
-    builder.add(close_button)
 
     await state.update_data(teacher_id=teacher_id)
     await state.clear()

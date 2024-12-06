@@ -43,8 +43,11 @@ async def help_command(message: types.Message) -> None:
 
 @dispatcher.callback_query(F.data == "close")
 async def close_command(callback: types.CallbackQuery, state: FSMContext) -> None:
+    message = callback.message
+
     await state.clear()
-    await callback.message.answer("Действие отменено")
+    await message.delete()
+    await message.answer("Действие отменено")
 
 
 async def main() -> None:
