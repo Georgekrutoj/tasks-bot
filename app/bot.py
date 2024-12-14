@@ -28,7 +28,7 @@ async def setup_bot() -> None:
 
 @dispatcher.message(CommandStart())
 async def start_command(message: types.Message) -> None:
-    await message.answer(f"Здравствуйте, {message.from_user.first_name}!\nЧтобы просмотреть список команд - /help")
+    await message.answer(f"Приветствую, {message.from_user.first_name}!\nЧтобы просмотреть список команд - /help")
 
 
 @dispatcher.message(Command("about"))

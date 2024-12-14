@@ -9,14 +9,21 @@ from aiogram.enums import ParseMode
 from app.states import SaveTeacherID
 
 from app.objects import CloseButton
-from app.objects import Level
+from app.objects import Teacher
+from app.objects import Student
+from app.objects import Tasks
+from app.objects import UserAlreadyExistsError
+from app.objects import UnknownTeacherError
 
 router = Router()
 close_button = CloseButton()
 
 
 @router.message(Command("register"))
-async def register_command(message: types.Message) -> None:
+async def register_command(
+        message: types.Message,
+        state: FSMContext
+) -> None:
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Я учитель",
@@ -29,6 +36,7 @@ async def register_command(message: types.Message) -> None:
     builder.add(close_button)
     builder.adjust(1)
 
+    await state.update_data(telegram_id=message.from_user.id, full_name=message.from_user.full_name)
     await message.answer("Вы учитель или ученик?", reply_markup=builder.as_markup())
 
 
@@ -57,21 +65,43 @@ async def delete_user(message: types.Message) -> None:
 
 
 @router.callback_query(F.data == "teacher")
-async def register_as_teacher(callback: types.CallbackQuery) -> None:
+async def register_as_teacher(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
+    data = await state.get_data()
+    user_id = data.get("telegram_id")
     message = callback.message
-
-    await message.delete()
-    await message.answer(
-        text=f"Ваш ID - <code>{message.from_user.id}</code> (<i>нажмите, чтобы скопировать</i>).\n"
-             f"Дайте его ученикам, чтобы они зарегистрировались на Вас.\n"
-             f"Захотите удалить аккаунт - /deleteuser",
-        parse_mode=ParseMode.HTML
+    database = Tasks()
+    teacher = Teacher(
+        telegram_id=user_id,
+        full_name=data.get("full_name")
     )
-    await callback.answer("Вы успешно зарегистрировались как учитель!")
+
+    try:
+        database.add(teacher)
+        await message.delete()
+        await message.answer(
+            text=f"Ваш ID - <code>{user_id}</code> (<i>нажмите, чтобы скопировать</i>).\n"
+                 f"Дайте его ученикам, чтобы они зарегистрировались на Вас.\n"
+                 f"Захотите удалить аккаунт - /deleteuser",
+            parse_mode=ParseMode.HTML
+        )
+        await callback.answer("Вы успешно зарегистрировались как учитель!")
+    except UserAlreadyExistsError:
+        await message.answer("Кажется, Вы уже зарегистрированы.\nЕсли хотите удалить аккаунт, отправьте /deleteuser")
+    except Exception as e:
+        await message.answer(f"Произошла ошибка: {e}")
+    finally:
+        database.close()
+        await state.clear()
 
 
 @router.callback_query(F.data == "student")
-async def register_as_student(callback: types.CallbackQuery, state: FSMContext) -> None:
+async def register_as_student(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
     message = callback.message
     builder = InlineKeyboardBuilder()
     builder.add(close_button)
@@ -82,9 +112,33 @@ async def register_as_student(callback: types.CallbackQuery, state: FSMContext) 
 
 
 @router.message(SaveTeacherID.waiting_for_teacher_id, F.text)
-async def get_teacher_id(message: types.Message, state: FSMContext) -> None:
+async def get_teacher_id(
+        message: types.Message,
+        state: FSMContext
+) -> None:
+    data = await state.get_data()
     teacher_id = message.text
+    database = Tasks()
 
-    await state.update_data(teacher_id=teacher_id)
-    await state.clear()
-    await message.answer(f"ID учителя сохранен: {teacher_id}")
+    try:
+        student = Student(
+            telegram_id=data.get("telegram_id"),
+            name=data.get("full_name"),
+            teacher=int(teacher_id)
+        )
+
+        database.add(student)
+
+        for i in range(2):
+            await message.delete()
+        await message.answer(f"Вы успешно зарегистрировались как ученик!")
+    except UserAlreadyExistsError:
+        await message.answer("Кажется, Вы уже зарегистрированы.\nЕсли хотите удалить аккаунт, отправьте /deleteuser")
+    except UnknownTeacherError:
+        await message.answer("Кажется, нет учителя с таким ID...")
+    except Exception as e:
+        print(e)
+        await message.answer(f"Произошла ошибка: {e}")
+    finally:
+        database.close()
+        await state.clear()

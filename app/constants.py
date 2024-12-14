@@ -13,4 +13,4 @@ BOT_COMMANDS = [
 BOT_COMMANDS_FOR_MENU = [BotCommand(command=cmd, description=description) for cmd, description in BOT_COMMANDS]
 ABOUT_BOT = """Этот бот используется для \
 обмена задачами между учениками и учителем"""
-PATH_TO_DB = "databases\\tasks.db"
+PATH_TO_DB = "app\\databases\\tasks.db"
