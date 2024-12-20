@@ -11,6 +11,7 @@ from aiogram.filters.command import Command
 from aiogram.filters.command import CommandStart
 
 from .handlers import register
+from .handlers import teacher
 
 from .constants import TOKEN
 from .constants import BOT_COMMANDS
@@ -19,7 +20,7 @@ from .constants import ABOUT_BOT
 
 bot = Bot(TOKEN)
 dispatcher = Dispatcher()
-dispatcher.include_router(register.router)
+dispatcher.include_routers(register.router, teacher.router)
 
 
 async def setup_bot() -> None:
@@ -41,8 +42,19 @@ async def help_command(message: types.Message) -> None:
     await message.answer("\n".join(["".join(tpl) for tpl in BOT_COMMANDS]))
 
 
+@dispatcher.message(Command("getid"))
+async def get_id(message: types.Message) -> None:
+    await message.answer(
+        text=f"Ваш <i>ID</i> — <code>{message.from_user.id}</code>.",
+        parse_mode=ParseMode.HTML
+    )
+
+
 @dispatcher.callback_query(F.data == "close")
-async def close_command(callback: types.CallbackQuery, state: FSMContext) -> None:
+async def close_command(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
     message = callback.message
 
     await state.clear()

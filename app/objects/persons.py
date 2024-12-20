@@ -17,16 +17,14 @@ class Teacher(BasePerson):
             self,
             *,
             telegram_id: int,
-            full_name: str,
-            class_: Optional[list[int]] = None
+            full_name: str
     ) -> None:
         super().__init__(telegram_id)
 
         self.full_name = full_name
-        self.class_ = class_
 
-    def __call__(self) -> tuple[int, str, list[int] | None]:
-        return self.telegram_id, self.full_name, self.class_
+    def __call__(self) -> tuple[int, str]:
+        return self.telegram_id, self.full_name
 
 
 class Student(BasePerson):

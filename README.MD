@@ -19,6 +19,7 @@ There is a teacher and some students (or just one). Each of them has its own cap
 
 ### Teacher capabilities
 ![Teacher registration example](assets/imgs/register-cmd.png)
+
 Teacher can create a teacher account in the bot.
 Then he must give this ID to his students (this is no longer done through the bot).
 

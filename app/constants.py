@@ -7,8 +7,9 @@ BOT_COMMANDS = [
     ("/help", " - получить список команд"),
     ("/register", " - зарегистрироваться"),
     ("/deleteuser", " - удалить аккаунт"),
-    ("/students", " - получить своих студентов"),
-    ("/givetasks", " - дать задания")
+    ("/getstudents", " - получить своих студентов"),
+    ("/givetasks", " - дать задания"),
+    ("/getid", " - получить свой ID (бесполезно, если Вы не учитель)")
 ]
 BOT_COMMANDS_FOR_MENU = [BotCommand(command=cmd, description=description) for cmd, description in BOT_COMMANDS]
 ABOUT_BOT = """Этот бот используется для \

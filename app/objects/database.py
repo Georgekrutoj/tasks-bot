@@ -24,8 +24,7 @@ class Tasks:
         CREATE TABLE IF NOT EXISTS Teachers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             telegram_id INTEGER,
-            full_name STRING,
-            class STRING
+            full_name STRING
         )
         """)
         self.cursor.execute("""
@@ -72,21 +71,48 @@ class Tasks:
         if not self._is_exist(BasePerson(id_)):
             raise UserIsNotExistError(id_)
 
+        table_to_delete_from = "Teachers" if self._is_teacher_exist(id_) else "Students"
+
+        self.cursor.execute(f"""
+        DELETE FROM {table_to_delete_from}
+        WHERE telegram_id = ?
+        """, (id_,))
+        self.connection.commit()
+
+    def get_students(
+            self,
+            teacher_id: int
+    ) -> list[Student]:
+        if not self._is_teacher_exist(teacher_id):
+            raise UnknownTeacherError(teacher_id)
+
+        self.cursor.execute("""
+        SELECT *
+        FROM Students
+        WHERE teacher = ?
+        """, (teacher_id,))
+        students = self.cursor.fetchall()
+
+        return [Student(
+            telegram_id=student[1],
+            name=student[2],
+            teacher=student[3],
+            tasks=student[4],
+            statistics=student[5]
+        ) for student in students]
+
     def close(self) -> None:
         self.connection.close()
 
     def _add_teacher(
             self,
-            teacher_data: Teacher,
-            /
+            teacher_data: Teacher
     ) -> None:
         self.cursor.execute("""
         INSERT INTO Teachers (
             telegram_id,
-            full_name,
-            class
+            full_name
         ) VALUES (
-            ?,
             ?,
             ?
         )
@@ -94,8 +120,7 @@ class Tasks:
 
     def _add_student(
             self,
-            student_data: Student,
-            /
+            student_data: Student
     ) -> None:
         self.cursor.execute("""
         INSERT INTO Students (
@@ -117,17 +142,7 @@ class Tasks:
             self,
             data: BasePerson
     ) -> bool:
-        self.cursor.execute("""
-        SELECT telegram_id 
-        FROM Teachers
-        WHERE telegram_id = ?
-        UNION
-        SELECT telegram_id
-        FROM Students
-        WHERE telegram_id = ?
-        """, (data.telegram_id, data.telegram_id))
-
-        return bool(self.cursor.fetchone())
+        return self._is_teacher_exist(data.telegram_id) or self._is_student_exist(data.telegram_id)
 
     def _is_teacher_exist(
             self,
@@ -136,6 +151,18 @@ class Tasks:
         self.cursor.execute("""
         SELECT telegram_id 
         FROM Teachers
+        WHERE telegram_id = ?
+        """, (id_,))
+
+        return bool(self.cursor.fetchone())
+
+    def _is_student_exist(
+            self,
+            id_: int
+    ) -> bool:
+        self.cursor.execute("""
+        SELECT telegram_id 
+        FROM Students
         WHERE telegram_id = ?
         """, (id_,))
 

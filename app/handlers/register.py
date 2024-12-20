@@ -8,15 +8,15 @@ from aiogram.enums import ParseMode
 
 from app.states import SaveTeacherID
 
-from app.objects import CloseButton
+from app.objects import ExitBuilder
 from app.objects import Teacher
 from app.objects import Student
 from app.objects import Tasks
 from app.objects import UserAlreadyExistsError
+from app.objects import UserIsNotExistError
 from app.objects import UnknownTeacherError
 
 router = Router()
-close_button = CloseButton()
 
 
 @router.message(Command("register"))
@@ -24,24 +24,28 @@ async def register_command(
         message: types.Message,
         state: FSMContext
 ) -> None:
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(
-        text="Я учитель",
-        callback_data="teacher"
-    ))
-    builder.add(types.InlineKeyboardButton(
-        text="Я ученик",
-        callback_data="student"
-    ))
-    builder.add(close_button)
-    builder.adjust(1)
+    builder = ExitBuilder(
+        [
+            types.InlineKeyboardButton(
+                text="Я учитель",
+                callback_data="teacher"
+            ),
+            types.InlineKeyboardButton(
+                text="Я ученик",
+                callback_data="student"
+            )
+        ]
+    )
 
     await state.update_data(telegram_id=message.from_user.id, full_name=message.from_user.full_name)
     await message.answer("Вы учитель или ученик?", reply_markup=builder.as_markup())
 
 
 @router.message(Command("deleteuser"))
-async def delete_user(message: types.Message) -> None:
+async def delete_user(
+        message: types.Message,
+        state: FSMContext
+) -> None:
     builder = InlineKeyboardBuilder()
     builder.add(
         types.InlineKeyboardButton(
@@ -52,11 +56,12 @@ async def delete_user(message: types.Message) -> None:
     builder.add(
         types.InlineKeyboardButton(
             text="Нет",
-            callback_data="delete_not_sure"
+            callback_data="close"
         )
     )
     builder.adjust(1)
 
+    await state.update_data(telegram_id=message.from_user.id)
     await message.answer(
         text="<b>Вы точно хотите удалить аккаунт?</b>\n",
         reply_markup=builder.as_markup(),
@@ -103,12 +108,34 @@ async def register_as_student(
         state: FSMContext
 ) -> None:
     message = callback.message
-    builder = InlineKeyboardBuilder()
-    builder.add(close_button)
+    builder = ExitBuilder()
 
     await message.delete()
     await message.answer("Пожалуйста, отправьте ID своего учителя", reply_markup=builder.as_markup())
     await state.set_state(SaveTeacherID.waiting_for_teacher_id)
+
+
+@router.callback_query(F.data == "delete_sure")
+async def delete_user(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
+    data = await state.get_data()
+    id_ = data.get("telegram_id")
+    message = callback.message
+    database = Tasks()
+
+    try:
+        database.del_user(id_)
+        await message.answer("Ваш профиль успешно удалён.")
+    except UserIsNotExistError:
+        await message.answer("Вы не можете удалить свой профиль, так как Вы не зарегистрированы.")
+    except Exception as e:
+        print(e)
+        await message.answer("Что-то пошло не так! Повторите попытку позже.")
+    finally:
+        database.close()
+        await state.clear()
 
 
 @router.message(SaveTeacherID.waiting_for_teacher_id, F.text)
@@ -129,8 +156,7 @@ async def get_teacher_id(
 
         database.add(student)
 
-        for i in range(2):
-            await message.delete()
+        await message.delete()
         await message.answer(f"Вы успешно зарегистрировались как ученик!")
     except UserAlreadyExistsError:
         await message.answer("Кажется, Вы уже зарегистрированы.\nЕсли хотите удалить аккаунт, отправьте /deleteuser")
