@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 
 from app.states import SaveTeacherID
+from app.constants import ERROR_MESSAGE
 
 from app.objects import ExitBuilder
 from app.objects import Teacher
@@ -96,7 +97,8 @@ async def register_as_teacher(
     except UserAlreadyExistsError:
         await message.answer("Кажется, Вы уже зарегистрированы.\nЕсли хотите удалить аккаунт, отправьте /deleteuser")
     except Exception as e:
-        await message.answer(f"Произошла ошибка: {e}")
+        print(e)
+        await message.answer(ERROR_MESSAGE)
     finally:
         database.close()
         await state.clear()
@@ -132,7 +134,7 @@ async def delete_user(
         await message.answer("Вы не можете удалить свой профиль, так как Вы не зарегистрированы.")
     except Exception as e:
         print(e)
-        await message.answer("Что-то пошло не так! Повторите попытку позже.")
+        await message.answer(ERROR_MESSAGE)
     finally:
         database.close()
         await state.clear()
@@ -164,7 +166,7 @@ async def get_teacher_id(
         await message.answer("Кажется, нет учителя с таким ID...")
     except Exception as e:
         print(e)
-        await message.answer(f"Произошла ошибка: {e}")
+        await message.answer(ERROR_MESSAGE)
     finally:
         database.close()
         await state.clear()

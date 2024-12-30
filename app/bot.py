@@ -39,7 +39,7 @@ async def about_command(message: types.Message) -> None:
 
 @dispatcher.message(Command("help"))
 async def help_command(message: types.Message) -> None:
-    await message.answer("\n".join(["".join(tpl) for tpl in BOT_COMMANDS]))
+    await message.answer("\n".join(["".join(cmd) for cmd in BOT_COMMANDS]))
 
 
 @dispatcher.message(Command("getid"))
@@ -70,4 +70,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    print("Bot has been successfully started!")
     asyncio.run(main())
