@@ -7,7 +7,7 @@ class UserAlreadyExistsError(Exception):
         super().__init__(message)
 
 
-class UserIsNotExistError(Exception):
+class UserDoesNotExistError(Exception):
     def __init__(
             self,
             id_: int = None,
@@ -17,10 +17,10 @@ class UserIsNotExistError(Exception):
         super().__init__(message + str(id_))
 
 
-class UnknownTeacherError(UserIsNotExistError):
+class UnknownTeacherError(UserDoesNotExistError):
     def __init__(
             self,
-            id_: int,
+            id_: int = None,
             /
     ) -> None:
         super().__init__(id_)

@@ -14,7 +14,7 @@ from app.objects import Teacher
 from app.objects import Student
 from app.objects import Tasks
 from app.objects import UserAlreadyExistsError
-from app.objects import UserIsNotExistError
+from app.objects import UserDoesNotExistError
 from app.objects import UnknownTeacherError
 
 router = Router()
@@ -130,7 +130,7 @@ async def delete_user(
     try:
         database.del_user(id_)
         await message.answer("Ваш профиль успешно удалён.")
-    except UserIsNotExistError:
+    except UserDoesNotExistError:
         await message.answer("Вы не можете удалить свой профиль, так как Вы не зарегистрированы.")
     except Exception as e:
         print(e)

@@ -6,7 +6,7 @@ from .dbobjects import Student
 from .dbobjects import Task
 
 from .exceptions import UserAlreadyExistsError
-from .exceptions import UserIsNotExistError
+from .exceptions import UserDoesNotExistError
 from .exceptions import UnknownTeacherError
 
 from ..constants import PATH_TO_DB
@@ -75,7 +75,7 @@ class Tasks:
             id_: int
     ) -> None:
         if not self.is_exist(id_):
-            raise UserIsNotExistError(id_)
+            raise UserDoesNotExistError(id_)
 
         table_to_delete_from = "Teachers" if self.is_teacher_exist(id_) else "Students"
 
@@ -93,7 +93,7 @@ class Tasks:
             raise UnknownTeacherError(teacher_id)
 
         self.cursor.execute("""
-        SELECT *
+        SELECT telegram_id, name, teacher, tasks, statistics
         FROM Students
         WHERE teacher = ?
         """, (teacher_id,))
@@ -106,6 +106,55 @@ class Tasks:
             tasks=student[4],
             statistics=student[5]
         ) for student in students]
+
+    def get_tasks(
+            self,
+            teacher_id: int
+    ) -> list[Task]:
+        if not self.is_teacher_exist(teacher_id):
+            raise UnknownTeacherError(teacher_id)
+
+        self.cursor.execute("""
+        SELECT teacher_id, title, description, right_answer, level
+        FROM Tasks
+        WHERE teacher_id = ?
+        """, (teacher_id,))
+        tasks = self.cursor.fetchall()
+
+        return [Task(
+            telegram_id=task[0],
+            title=task[1],
+            description=task[2],
+            right_answer=task[3],
+            level=task[4]
+        ) for task in tasks]
+
+    def get_task(
+            self,
+            teacher_id: int,
+            title: str
+    ) -> Task | None:
+        if not self.is_teacher_exist(teacher_id):
+            raise UnknownTeacherError(teacher_id)
+
+        self.cursor.execute("""
+        SELECT teacher_id, title, description, right_answer, level
+        FROM Tasks
+        WHERE teacher_id = ? AND title = ?
+        """, (teacher_id, title))
+
+        task = self.cursor.fetchone()
+
+        if task is not None:
+            return Task(
+                telegram_id=task[0],
+                title=task[1],
+                description=task[2],
+                right_answer=task[3],
+                level=task[4]
+            )
+
+        return None
 
     def close(self) -> None:
         self.connection.close()

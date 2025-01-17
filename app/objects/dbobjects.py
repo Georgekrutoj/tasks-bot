@@ -72,3 +72,9 @@ class Task(BaseData):
     @override
     def __call__(self) -> tuple[int, str, str, str, str]:
         return self.telegram_id, self.title, self.description, self.right_answer, self.level
+
+    def __str__(self) -> str:
+        return (f"Название: {self.title}\n"
+                f"Описание: {self.description}\n"
+                f"Правильный ответ: {self.right_answer}\n"
+                f"Уровень сложности: {self.level}")

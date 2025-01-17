@@ -13,6 +13,8 @@ from aiogram.filters.command import CommandStart
 from .handlers import register
 from .handlers import teacher
 
+from .utils import exit_state
+
 from .constants import TOKEN
 from .constants import BOT_COMMANDS
 from .constants import BOT_COMMANDS_FOR_MENU
@@ -55,11 +57,10 @@ async def close_command(
         callback: types.CallbackQuery,
         state: FSMContext
 ) -> None:
-    message = callback.message
-
-    await state.clear()
-    await message.delete()
-    await message.answer("Действие отменено")
+    await exit_state(
+        message=callback.message,
+        state=state
+    )
 
 
 async def main() -> None:

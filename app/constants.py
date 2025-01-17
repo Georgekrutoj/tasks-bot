@@ -10,6 +10,7 @@ BOT_COMMANDS = [
     ("/getstudents", " - получить своих студентов"),
     ("/addtask", " - добавить задание"),
     ("/givetasks", " - дать задания"),
+    ("/gettasks", " - получить список заданий для просмотра"),
     ("/getid", " - получить свой ID (бесполезно, если Вы не учитель)")
 ]
 BOT_COMMANDS_FOR_MENU = [BotCommand(command=cmd, description=description) for cmd, description in BOT_COMMANDS]
