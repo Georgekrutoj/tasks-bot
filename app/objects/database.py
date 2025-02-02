@@ -100,11 +100,11 @@ class Tasks:
         students = self.cursor.fetchall()
 
         return [Student(
-            telegram_id=student[1],
-            name=student[2],
-            teacher=student[3],
-            tasks=student[4],
-            statistics=student[5]
+            telegram_id=student[0],
+            name=student[1],
+            teacher=student[2],
+            tasks=student[3],
+            statistics=student[4]
         ) for student in students]
 
     def get_tasks(

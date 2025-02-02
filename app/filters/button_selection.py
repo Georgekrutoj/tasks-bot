@@ -13,9 +13,9 @@ class ButtonSelectionFilter(BaseFilter):
             self,
             callback_query: CallbackQuery
     ) -> bool:
-        callback_data = callback_query.data.split(" ")
+        callback_data = callback_query.data.split()
 
-        if len(callback_data) != 2:
+        if len(callback_data) < 2:
             return False
 
         action = callback_data[1]

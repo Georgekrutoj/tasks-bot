@@ -2,9 +2,9 @@ from os import getenv
 from dotenv import load_dotenv
 from aiogram.types import BotCommand
 
-load_dotenv()
+load_dotenv("app\\.env")
 
-TOKEN = getenv("TOKEN")
+TOKEN = getenv("BOT_TOKEN")
 BOT_COMMANDS = [
     ("/start", " - запустить бота"),
     ("/about", " - информация о боте"),

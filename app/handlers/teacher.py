@@ -5,8 +5,11 @@ from aiogram.enums import ParseMode
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.utils import exit_state
+from app.utils import is_any_selected
+from app.utils import get_selected
 
 from app.states import TaskCreation
 from app.states import TasksGetting
@@ -15,9 +18,12 @@ from app.constants import TASK_CREATION_TEXT
 from app.constants import ERROR_MESSAGE
 
 from app.objects import ExitBuilder
+from app.objects import TasksBuilder
+from app.objects import StudentsBuilder
 from app.objects import Tasks
 from app.objects import Task
 from app.objects import UnknownTeacherError
+from app.objects.student_for_tasks_giving import StudentForTasksGiving
 
 from app.filters import ButtonSelectionFilter
 
@@ -159,24 +165,45 @@ async def confirm_task(
         print(e)
         await message.answer(ERROR_MESSAGE)
     finally:
-        database.close()
-        await state.clear()
+        await exit_state(
+            message=message,
+            state=state,
+            delete_text="",
+            database=database
+        )
 
 
 @router.message(Command("givetasks"))
-async def give_tasks(message: types.Message) -> None:
+async def give_tasks(
+        message: types.Message,
+        state: FSMContext
+) -> None:
     database = Tasks()
+    students = database.get_students(message.from_user.id)
+
+    if len(students) == 0:
+        await message.answer("Чтобы дать задания, надо иметь учеников!")
+        await exit_state(
+            message=message,
+            state=state,
+            delete_text="",
+            delete_message=False,
+            database=database
+        )
+        return
 
     try:
-        builder = ExitBuilder([
+        builder = TasksBuilder(database.get_tasks(message.from_user.id))
+        builder.add(
             types.InlineKeyboardButton(
-                text=task.title,
-                callback_data=f"{index} task_selected"
-            ) for index, task in enumerate(database.get_tasks(message.from_user.id))
-        ])
+                text="Продолжить",
+                callback_data="continue_to_students"
+            )
+        )
 
+        await state.update_data(teacher_id=message.from_user.id)
         await message.answer(
-            text="Выберете задания, которые Вы хотите дать.",
+            text="Выберете задания, которые Вы хотите дать. Для просмотра описаний задач используйте /gettasks",
             reply_markup=builder.as_markup()
         )
     except UnknownTeacherError:
@@ -185,25 +212,104 @@ async def give_tasks(message: types.Message) -> None:
         database.close()
 
 
-@router.callback_query(ButtonSelectionFilter(["task_selected", "task_unselected"]))
-async def select_task(callback: types.CallbackQuery) -> None:
+@router.callback_query(F.data == "continue_to_students")
+async def select_students(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
     message = callback.message
-    index = callback.data.split()[0]
+
+    if not is_any_selected(message.reply_markup.inline_keyboard):
+        await callback.answer("Хотя бы одно задание должно быть выбрано!")
+        return
+
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+    database = Tasks()
+    builder = StudentsBuilder(database.get_students(teacher_id))
+    builder.add(types.InlineKeyboardButton(
+        text="Продолжить",
+        callback_data="continue_to_final"
+    ))
+    selected_tasks = get_selected(message.reply_markup.inline_keyboard)
+
+    await message.edit_text(
+        text=f"Выбранные задания: <b>{", ".join(selected_tasks)}</b>.\n"
+             f"Выберите, кому Вы хотите их дать.",
+        reply_markup=builder.as_markup(),
+        parse_mode=ParseMode.HTML
+    )
+    await state.update_data(selected_tasks=selected_tasks)
+
+
+@router.callback_query(F.data == "continue_to_final")
+async def check_tasks_to_give(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
+    message = callback.message
+
+    if not is_any_selected(message.reply_markup.inline_keyboard):
+        await callback.answer("Хотя бы один ученик должен быть выбран!")
+        return
+
+    data = await state.get_data()
+    selected_tasks = data.get("selected_tasks")
+    selected_students = get_selected(message.reply_markup.inline_keyboard)
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="Да", callback_data="give_tasks"))
+    builder.add(types.InlineKeyboardButton(text="Нет", callback_data="close"))
+    builder.adjust(1)
+    print(selected_students)
+
+    await message.edit_text(
+        text=f"Выбранные задания: <b>{", ".join(selected_tasks)}</b>.\n"
+             f"Выбранные ученики: <b>{", ".join(selected_students)}</b>.\n"
+             f"Раздать задания?",
+        reply_markup=builder.as_markup(),
+        parse_mode=ParseMode.HTML
+    )
+    await state.update_data(selected_students=selected_students)
+
+
+@router.callback_query(F.data == "give_tasks")
+async def finally_give_tasks(
+        callback: types.CallbackQuery,
+        state: FSMContext
+) -> None:
+    ...
+
+
+@router.callback_query(ButtonSelectionFilter([
+    "selected_task", "unselected_task",
+    "selected_student", "unselected_student"
+]))
+async def select_button(callback: types.CallbackQuery) -> None:
+    message = callback.message
     new_buttons = []
+    index = callback.data.split()[0]
 
     for row in message.reply_markup.inline_keyboard:
         new_row = []
 
         for button in row:
-            if button.callback_data.startswith(index) and button.callback_data.endswith("task_selected"):
+            if not button.callback_data or " " not in button.callback_data:
+                new_row.append(button)
+                continue
+
+            split_data = button.callback_data.split()
+            ends_with = split_data[1] if len(split_data) > 1 else ""
+            does_start_with_index = button.callback_data.split()[0] == index
+
+            if does_start_with_index and (ends_with == "selected_task" or ends_with == "selected_student"):
                 new_row.append(types.InlineKeyboardButton(
                     text="✅" + button.text,
-                    callback_data=f"{index} task_unselected"
+                    callback_data=f"{index} un{ends_with}"
                 ))
-            elif button.callback_data.startswith(index) and button.callback_data.endswith("task_unselected"):
+            elif does_start_with_index and (ends_with == "unselected_task" or ends_with == "unselected_student"):
                 new_row.append(types.InlineKeyboardButton(
                     text=button.text[1:],
-                    callback_data=f"{index} task_selected"
+                    callback_data=f"{index} {ends_with[2:]}"
                 ))
             else:
                 new_row.append(button)
