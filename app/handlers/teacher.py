@@ -8,6 +8,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.utils import exit_state
+from app.utils import get_buttons_texts
 from app.utils import is_any_selected
 from app.utils import get_selected
 
@@ -22,8 +23,7 @@ from app.objects import TasksBuilder
 from app.objects import StudentsBuilder
 from app.objects import Tasks
 from app.objects import Task
-from app.objects import UnknownTeacherError
-from app.objects.student_for_tasks_giving import StudentForTasksGiving
+from app.objects import TeacherDoesNotExist
 
 from app.filters import ButtonSelectionFilter
 
@@ -42,8 +42,8 @@ async def add_task(
 ) -> None:
     database = Tasks()
 
-    if database.is_teacher_exist(message.from_user.id):
-        await state.update_data(user_id=message.from_user.id)
+    if database.does_teacher_exist(message.from_user.id):
+        await state.update_data(teacher_id=message.from_user.id)
         await message.answer(
             text="<b>Вы попали в мастер по созданию задач.</b>\nПожалуйста, отправьте название задачи.",
             parse_mode=ParseMode.HTML,
@@ -59,9 +59,11 @@ async def get_title(
         message: types.Message,
         state: FSMContext
 ) -> None:
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
     database = Tasks()
 
-    if database.is_task_exist(message.text):
+    if database.does_task_exist(message.text, teacher_id):
         await message.answer("Задание с таким названием уже существует. Попробуйте создать с другим.")
     else:
         await message.answer(
@@ -151,7 +153,7 @@ async def confirm_task(
     message = callback.message
     database = Tasks()
     task = Task(
-        telegram_id=data.get("user_id"),
+        telegram_id=data.get("teacher_id"),
         title=data.get("title"),
         description=data.get("description"),
         right_answer=data.get("right_answer"),
@@ -168,7 +170,7 @@ async def confirm_task(
         await exit_state(
             message=message,
             state=state,
-            delete_text="",
+            exit_text="",
             database=database
         )
 
@@ -186,7 +188,7 @@ async def give_tasks(
         await exit_state(
             message=message,
             state=state,
-            delete_text="",
+            exit_text="",
             delete_message=False,
             database=database
         )
@@ -206,7 +208,7 @@ async def give_tasks(
             text="Выберете задания, которые Вы хотите дать. Для просмотра описаний задач используйте /gettasks",
             reply_markup=builder.as_markup()
         )
-    except UnknownTeacherError:
+    except TeacherDoesNotExist:
         await message.answer("Только учитель может давать задания!")
     finally:
         database.close()
@@ -260,7 +262,6 @@ async def check_tasks_to_give(
     builder.add(types.InlineKeyboardButton(text="Да", callback_data="give_tasks"))
     builder.add(types.InlineKeyboardButton(text="Нет", callback_data="close"))
     builder.adjust(1)
-    print(selected_students)
 
     await message.edit_text(
         text=f"Выбранные задания: <b>{", ".join(selected_tasks)}</b>.\n"
@@ -269,7 +270,7 @@ async def check_tasks_to_give(
         reply_markup=builder.as_markup(),
         parse_mode=ParseMode.HTML
     )
-    await state.update_data(selected_students=selected_students)
+    await state.update_data(selected_students=get_buttons_texts(message.reply_markup.inline_keyboard))
 
 
 @router.callback_query(F.data == "give_tasks")
@@ -277,7 +278,24 @@ async def finally_give_tasks(
         callback: types.CallbackQuery,
         state: FSMContext
 ) -> None:
-    ...
+    data = await state.get_data()
+    message = callback.message
+    database = Tasks()
+
+    for student in data.get("selected_students"):
+        for task_name in data.get("selected_tasks"):
+            database.give_task_to_student(
+                student_id=student.telegram_id,
+                teacher_id=data.get("teacher_id"),
+                task_name=task_name
+            )
+
+    await exit_state(
+        message=message,
+        state=state,
+        exit_text="Задания успешно разданы!",
+        database=database
+    )
 
 
 @router.callback_query(ButtonSelectionFilter([
@@ -380,7 +398,7 @@ async def get_students(message: types.Message) -> None:
             await message.answer("У Вас нет учеников.")
         else:
             await message.answer(message_)
-    except UnknownTeacherError:
+    except TeacherDoesNotExist:
         await message.answer("Просмотреть своих учеников может только учитель.")
     finally:
         database.close()

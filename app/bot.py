@@ -12,6 +12,7 @@ from aiogram.filters.command import CommandStart
 
 from .handlers import register
 from .handlers import teacher
+from .handlers import student
 
 from .utils import exit_state
 
@@ -22,7 +23,7 @@ from .constants import ABOUT_BOT
 
 bot = Bot(TOKEN)
 dispatcher = Dispatcher()
-dispatcher.include_routers(register.router, teacher.router)
+dispatcher.include_routers(register.router, teacher.router, student.router)
 
 
 async def setup_bot() -> None:

@@ -11,16 +11,16 @@ async def exit_state(
         *,
         message: types.Message,
         state: FSMContext,
-        delete_text: Optional[str] = "Действие успешно отменено.",
+        exit_text: Optional[str] = "Действие успешно отменено.",
         delete_message: bool = True,
         database: Optional[Tasks] = None
 ) -> None:
     if delete_message:
         await message.delete()
 
-    if delete_text:
+    if exit_text:
         await message.answer(
-            text=delete_text,
+            text=exit_text,
             reply_markup=types.ReplyKeyboardRemove()
         )
 

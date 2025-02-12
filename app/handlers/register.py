@@ -14,8 +14,8 @@ from app.objects import Teacher
 from app.objects import Student
 from app.objects import Tasks
 from app.objects import UserAlreadyExistsError
-from app.objects import UserDoesNotExistError
-from app.objects import UnknownTeacherError
+from app.objects import ObjectDoesNotExistError
+from app.objects import TeacherDoesNotExist
 
 router = Router()
 
@@ -130,7 +130,7 @@ async def delete_user(
     try:
         database.del_user(id_)
         await message.answer("Ваш профиль успешно удалён.")
-    except UserDoesNotExistError:
+    except ObjectDoesNotExistError:
         await message.answer("Вы не можете удалить свой профиль, так как Вы не зарегистрированы.")
     except Exception as e:
         print(e)
@@ -162,7 +162,7 @@ async def get_teacher_id(
         await message.answer(f"Вы успешно зарегистрировались как ученик!")
     except UserAlreadyExistsError:
         await message.answer("Кажется, Вы уже зарегистрированы.\nЕсли хотите удалить аккаунт, отправьте /deleteuser")
-    except UnknownTeacherError:
+    except TeacherDoesNotExist:
         await message.answer("Кажется, нет учителя с таким ID...")
     except Exception as e:
         print(e)

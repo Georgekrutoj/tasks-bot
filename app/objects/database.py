@@ -1,4 +1,5 @@
 import sqlite3
+import json
 
 from .dbobjects import BaseData
 from .dbobjects import Teacher
@@ -6,10 +7,12 @@ from .dbobjects import Student
 from .dbobjects import Task
 
 from .exceptions import UserAlreadyExistsError
-from .exceptions import UserDoesNotExistError
-from .exceptions import UnknownTeacherError
+from .exceptions import ObjectDoesNotExistError
+from .exceptions import TeacherDoesNotExist
+from .exceptions import TaskDoesNotExist
 
 from ..constants import PATH_TO_DB
+from typing import Optional
 
 
 class Tasks:
@@ -56,13 +59,13 @@ class Tasks:
             self,
             data: BaseData
     ) -> None:
-        if not isinstance(data, Task) and self.is_exist(data.telegram_id):
+        if not isinstance(data, Task) and self.does_exist(data.telegram_id):
             raise UserAlreadyExistsError()
 
         if isinstance(data, Teacher):
             self._add_teacher(data)
-        elif isinstance(data, Student) and not self.is_teacher_exist(data.teacher):
-            raise UnknownTeacherError(data.teacher)
+        elif isinstance(data, Student) and not self.does_teacher_exist(data.teacher):
+            raise TeacherDoesNotExist(data.teacher)
         elif isinstance(data, Student):
             self._add_student(data)
         elif isinstance(data, Task):
@@ -70,14 +73,49 @@ class Tasks:
 
         self.connection.commit()
 
+    def give_task_to_student(
+            self,
+            student_id: int,
+            teacher_id: int,
+            task_name: str
+    ) -> None:
+        if not self.does_student_exist(student_id):
+            raise ObjectDoesNotExistError(student_id)
+        if not self.does_teacher_exist(teacher_id):
+            raise ObjectDoesNotExistError(teacher_id)
+        if not self.does_task_exist(task_name):
+            raise TaskDoesNotExist(task_name)
+
+        task = self.get_task(teacher_id, task_name)
+        if task is None:
+            raise TaskDoesNotExist(task_name)
+
+        tasks = self.get_student_tasks(student_id)
+        current_tasks = json.loads(tasks[0]) if tasks and tasks[0] else []
+
+        new_giving = {
+            "title": task.title,
+            "description": task.description,
+            "level": task.level
+        }
+        current_tasks.append(new_giving)
+
+        updated_tasks_json = json.dumps(current_tasks)
+        self.cursor.execute("""
+        UPDATE Students
+        SET tasks = ?
+        WHERE telegram_id = ?
+        """, (updated_tasks_json, student_id))
+        self.connection.commit()
+
     def del_user(
             self,
             id_: int
     ) -> None:
-        if not self.is_exist(id_):
-            raise UserDoesNotExistError(id_)
+        if not self.does_exist(id_):
+            raise ObjectDoesNotExistError(id_)
 
-        table_to_delete_from = "Teachers" if self.is_teacher_exist(id_) else "Students"
+        table_to_delete_from = "Teachers" if self.does_teacher_exist(id_) else "Students"
 
         self.cursor.execute(f"""
         DELETE FROM {table_to_delete_from}
@@ -89,8 +127,8 @@ class Tasks:
             self,
             teacher_id: int
     ) -> list[Student]:
-        if not self.is_teacher_exist(teacher_id):
-            raise UnknownTeacherError(teacher_id)
+        if not self.does_teacher_exist(teacher_id):
+            raise TeacherDoesNotExist(teacher_id)
 
         self.cursor.execute("""
         SELECT telegram_id, name, teacher, tasks, statistics
@@ -111,8 +149,8 @@ class Tasks:
             self,
             teacher_id: int
     ) -> list[Task]:
-        if not self.is_teacher_exist(teacher_id):
-            raise UnknownTeacherError(teacher_id)
+        if not self.does_teacher_exist(teacher_id):
+            raise TeacherDoesNotExist(teacher_id)
 
         self.cursor.execute("""
         SELECT teacher_id, title, description, right_answer, level
@@ -134,8 +172,8 @@ class Tasks:
             teacher_id: int,
             title: str
     ) -> Task | None:
-        if not self.is_teacher_exist(teacher_id):
-            raise UnknownTeacherError(teacher_id)
+        if not self.does_teacher_exist(teacher_id):
+            raise TeacherDoesNotExist(teacher_id)
 
         self.cursor.execute("""
         SELECT teacher_id, title, description, right_answer, level
@@ -155,6 +193,17 @@ class Tasks:
             )
 
         return None
+
+    def get_student_tasks(
+            self,
+            student_id: int
+    ) -> str:
+        self.cursor.execute("""
+        SELECT tasks
+        FROM Students
+        WHERE telegram_id = ? 
+        """, (student_id,))
+        return self.cursor.fetchone()
 
     def close(self) -> None:
         self.connection.close()
@@ -213,13 +262,13 @@ class Tasks:
         )
         """, task_data())
 
-    def is_exist(
+    def does_exist(
             self,
             id_: int
     ) -> bool:
-        return self.is_teacher_exist(id_) or self.is_student_exist(id_)
+        return self.does_teacher_exist(id_) or self.does_student_exist(id_)
 
-    def is_teacher_exist(
+    def does_teacher_exist(
             self,
             id_: int
     ) -> bool:
@@ -231,7 +280,7 @@ class Tasks:
 
         return bool(self.cursor.fetchone())
 
-    def is_student_exist(
+    def does_student_exist(
             self,
             id_: int
     ) -> bool:
@@ -243,14 +292,20 @@ class Tasks:
 
         return bool(self.cursor.fetchone())
 
-    def is_task_exist(
+    def does_task_exist(
             self,
-            title: str
+            title: str,
+            teacher_id: Optional[int] = None
     ) -> bool:
-        self.cursor.execute("""
+        params_to_insert = [title]
+
+        if teacher_id is not None:
+            params_to_insert.append(teacher_id)
+
+        self.cursor.execute(f"""
         SELECT title
         FROM Tasks
-        WHERE title = ?
-        """, (title,))
+        WHERE title = ? {"AND teacher_id = ?" if teacher_id is not None else ""}
+        """, tuple(params_to_insert))
 
         return bool(self.cursor.fetchone())
