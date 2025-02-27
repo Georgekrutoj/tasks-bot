@@ -26,6 +26,15 @@ class UserDoesNotExist(ObjectDoesNotExistError):
         super().__init__(id_, "cannot find user with this ID: ")
 
 
+class StudentDoesNotExist(ObjectDoesNotExistError):
+    def __init__(
+            self,
+            id_: int,
+            /
+    ) -> None:
+        super().__init__(id_, "cannot find student with this ID: ")
+
+
 class TeacherDoesNotExist(ObjectDoesNotExistError):
     def __init__(
             self,

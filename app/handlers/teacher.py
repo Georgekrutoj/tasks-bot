@@ -336,53 +336,6 @@ async def select_button(callback: types.CallbackQuery) -> None:
 
     await message.edit_reply_markup(reply_markup=types.InlineKeyboardMarkup(inline_keyboard=new_buttons))
 
-
-@router.message(Command("gettasks"))
-async def get_tasks(
-        message: types.Message,
-        state: FSMContext
-) -> None:
-    database = Tasks()
-    tasks = database.get_tasks(message.from_user.id)
-
-    if len(tasks) == 0:
-        await message.answer("Вы не можете просмотреть задачи, так как их нет.")
-    else:
-        builder = ReplyKeyboardBuilder([[types.KeyboardButton(text=task.title)] for task in tasks])
-        builder.add(types.KeyboardButton(text="Отмена"))
-        builder.adjust(1)
-
-        await message.answer(
-            text="Выберите задачу, которую Вы хотите просмотреть.",
-            reply_markup=builder.as_markup()
-        )
-        await state.set_state(TasksGetting.waiting_for_title)
-
-
-@router.message(TasksGetting.waiting_for_title, F.text)
-async def get_task(
-        message: types.Message,
-        state: FSMContext
-) -> None:
-    if message.text == "Отмена":
-        await exit_state(
-            message=message,
-            state=state,
-            delete_message=False
-        )
-        return None
-
-    database = Tasks()
-
-    try:
-        task = database.get_task(message.from_user.id, message.text)
-
-        await message.answer(str(task) if task else "Такого задания нет.")
-    except Exception as e:
-        print(e)
-        await message.answer(ERROR_MESSAGE)
-
-
 @router.message(Command("getstudents"))
 async def get_students(message: types.Message) -> None:
     database = Tasks()

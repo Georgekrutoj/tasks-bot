@@ -8,6 +8,8 @@ from .dbobjects import Task
 
 from .exceptions import UserAlreadyExistsError
 from .exceptions import ObjectDoesNotExistError
+from .exceptions import UserDoesNotExist
+from .exceptions import StudentDoesNotExist
 from .exceptions import TeacherDoesNotExist
 from .exceptions import TaskDoesNotExist
 
@@ -145,6 +147,21 @@ class Tasks:
             statistics=student[4]
         ) for student in students]
 
+    def get_teacher_of_student(
+            self,
+            student_id: int
+    ) -> int | None:
+        self.cursor.execute("""
+        SELECT teacher
+        FROM Students
+        WHERE telegram_id = ?
+        """, (student_id,))
+        teacher_id = self.cursor.fetchone()
+
+        if len(teacher_id):
+            return int(teacher_id[0])
+        return None
+
     def get_tasks(
             self,
             teacher_id: int
@@ -198,12 +215,34 @@ class Tasks:
             self,
             student_id: int
     ) -> str:
+        # if not self.does_student_exist(student_id):
+        #     raise StudentDoesNotExist(student_id)
+
         self.cursor.execute("""
         SELECT tasks
         FROM Students
         WHERE telegram_id = ? 
         """, (student_id,))
-        return self.cursor.fetchone()
+        tasks = self.cursor.fetchone()
+
+        return tasks
+
+    def get_student_tasks_names(
+            self,
+            student_id: int
+    ) -> list[str]:
+        tasks = self.get_student_tasks(student_id)
+
+        if tasks:
+            tasks = json.loads(tasks[0])
+            res = []
+
+            for task in tasks:
+                res.append(task["title"])
+
+            return res
+        else:
+            return []
 
     def close(self) -> None:
         self.connection.close()
