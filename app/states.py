@@ -20,3 +20,8 @@ class TasksGiving(StatesGroup):
 
 class TasksGetting(StatesGroup):
     waiting_for_title = State()
+
+
+class TasksSolving(StatesGroup):
+    waiting_for_title = State()
+    waiting_for_solution = State()

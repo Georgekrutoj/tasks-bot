@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from aiogram import Bot
 from aiogram import Dispatcher
@@ -68,23 +67,22 @@ async def get_tasks(
 ) -> None:
     database = Tasks()
     user_id = message.from_user.id
-    tasks = database.get_tasks(user_id) if database.does_teacher_exist(user_id) else \
+    is_user_teacher = database.does_teacher_exist(user_id)
+    tasks = [task.title for task in database.get_tasks(user_id)] if is_user_teacher else \
         database.get_student_tasks_names(user_id)
 
     if len(tasks) == 0:
         await message.answer("Вы не можете просмотреть задачи, так как их нет.")
     else:
-        print(tasks)
-
         if isinstance(tasks[0], Task):
             builder = ReplyKeyboardBuilder([[types.KeyboardButton(
-                text=task.title
-            )] for task in tasks]
+                text=title
+            )] for title in tasks]
             )
         else:
             builder = ReplyKeyboardBuilder([[types.KeyboardButton(
-                text=title
-            )] for title in tasks])
+                text=task
+            )] for task in tasks])
 
         builder.add(types.KeyboardButton(text="Отмена"))
         builder.adjust(1)
@@ -93,7 +91,9 @@ async def get_tasks(
             text="Выберите задачу, которую Вы хотите просмотреть.",
             reply_markup=builder.as_markup()
         )
-        await state.update_data(teacher_id=database.get_teacher_of_student(message.from_user.id))
+        await state.update_data(
+            teacher_id=user_id if is_user_teacher else database.get_teacher_of_student(message.from_user.id)
+        )
         await state.set_state(TasksGetting.waiting_for_title)
 
 
@@ -108,7 +108,7 @@ async def get_task(
             state=state,
             delete_message=False
         )
-        return None
+        return
 
     data = await state.get_data()
     teacher_id = data.get("teacher_id")

@@ -211,21 +211,48 @@ class Tasks:
 
         return None
 
+    def get_student_task(
+            self,
+            student_id: int,
+            task_title: str
+    ) -> Task:
+        if not self.does_student_exist(student_id):
+            raise StudentDoesNotExist(student_id)
+
+        tasks = self.get_student_tasks(student_id)
+        for task in tasks:
+            if task.get("title") == task_title:
+                # Поскольку в JSON-данных нет информации о правильном ответе,
+                # заполняем его пустой строкой.
+                teacher_id = self.get_teacher_of_student(student_id) or 0
+                return Task(
+                    telegram_id=teacher_id,
+                    title=task["title"],
+                    description=task["description"],
+                    right_answer="",
+                    level=task["level"]
+                )
+
+        raise TaskDoesNotExist(task_title)
+
     def get_student_tasks(
             self,
             student_id: int
-    ) -> str:
-        # if not self.does_student_exist(student_id):
-        #     raise StudentDoesNotExist(student_id)
+    ) -> list:
+        if not self.does_student_exist(student_id):
+            raise StudentDoesNotExist(student_id)
 
         self.cursor.execute("""
         SELECT tasks
         FROM Students
         WHERE telegram_id = ? 
         """, (student_id,))
-        tasks = self.cursor.fetchone()
+        row = self.cursor.fetchone()
 
-        return tasks
+        if row is None or row[0] is None:
+            return []
+
+        return json.loads(row[0])
 
     def get_student_tasks_names(
             self,
@@ -233,8 +260,7 @@ class Tasks:
     ) -> list[str]:
         tasks = self.get_student_tasks(student_id)
 
-        if tasks:
-            tasks = json.loads(tasks[0])
+        if any(tasks):
             res = []
 
             for task in tasks:
