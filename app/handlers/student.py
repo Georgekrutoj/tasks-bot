@@ -1,3 +1,5 @@
+from http.cookiejar import user_domain_match
+
 from aiogram import Router
 from aiogram import F
 from aiogram import types
@@ -62,18 +64,5 @@ async def send_solution(
              f"<i>Отправьте решение!</i>",
         parse_mode=ParseMode.HTML
     )
+    await state.update_data(task_title=task_title)
     await state.set_state(TasksSolving.waiting_for_solution)
-
-
-@router.message(TasksSolving.waiting_for_solution, F.text)
-async def solve_task(
-        message: types.Message,
-        state: FSMContext
-) -> None:
-    database = Tasks()
-    solution = message.text
-    user_teacher_id = database.get_teacher_of_student(message.from_user.id)
-
-    await message.answer(solution)
-
-    await state.clear()

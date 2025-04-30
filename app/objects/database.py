@@ -222,9 +222,8 @@ class Tasks:
         tasks = self.get_student_tasks(student_id)
         for task in tasks:
             if task.get("title") == task_title:
-                # Поскольку в JSON-данных нет информации о правильном ответе,
-                # заполняем его пустой строкой.
                 teacher_id = self.get_teacher_of_student(student_id) or 0
+                print(task["title"])
                 return Task(
                     telegram_id=teacher_id,
                     title=task["title"],

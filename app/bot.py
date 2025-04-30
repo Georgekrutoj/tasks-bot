@@ -27,6 +27,7 @@ from .objects import Tasks
 from .objects import Task
 
 from .states import TasksGetting
+from .states import TasksSolving
 
 bot = Bot(TOKEN)
 dispatcher = Dispatcher()
@@ -120,6 +121,36 @@ async def get_task(
     except Exception as e:
         print(e)
         await message.answer(ERROR_MESSAGE)
+
+
+@dispatcher.message(TasksSolving.waiting_for_solution, F.text)
+async def solve_task(
+        message: types.Message,
+        state: FSMContext
+) -> None:
+    student_id = message.from_user.id
+    student_name = message.from_user.full_name
+    data = await state.get_data()
+    task_title = data.get("task_title")
+    database = Tasks()
+    solution = message.text
+    student_teacher_id = database.get_teacher_of_student(student_id)
+    task = database.get_task(student_teacher_id, task_title)
+    is_right = False
+
+    if solution == str(task.right_answer):
+        await message.answer("Задание решено правильно. Поздравляю!")
+        is_right = True
+    else:
+        await message.answer("Решение не зачтено :(")
+
+    await bot.send_message(
+        chat_id=student_teacher_id,
+        text=f"Ученик {student_name} ({student_id}) пытался решить задачу <<{task_title}>>.\n"
+             f"Решение — {"зачтено" if is_right else "не зачтено"}."
+    )
+
+    await state.clear()
 
 
 @dispatcher.callback_query(F.data == "close")
